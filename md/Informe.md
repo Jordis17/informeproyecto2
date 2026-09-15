@@ -312,18 +312,18 @@ Si llega un byte en el mismo ciclo en que se limpia `new_rx`, gana la llegada. L
 | Fin | `END` |
 
 ```
-START:D:08
-PATT:________
+START:D:07
+PATT:_______
 ERR:6
 LET:E:OK 
-PATT:_E______
+PATT:_E_____
 ERR:6
 LET:E:RPT
 LET:Z:NO 
-PATT:_E______
+PATT:_E_____
 ERR:5
 ...
-END:LTO:TECLADOS
+END:LTO:TECLADO
 ```
 
 (Ejemplo ilustrativo del formato. El espacio al final de `OK ` y `NO ` es parte del campo de tres caracteres.)
@@ -340,18 +340,18 @@ La PC no habilita la siguiente letra hasta recibir la línea que cierra la anter
 
 | Estado | Salidas principales | Transición |
 |---|---|---|
-| `S_DIBUJA_SEL` | `screen` = selección, `redraw` | LCD libre → `S_SELECCION` |
-| `S_SELECCION` | `state` = 00 | `btn_sel` → cambia modo y vuelve a `S_DIBUJA_SEL`; `btn_ok` → `S_CARGA` |
-| `S_CARGA` | registra palabra, limpia reveladas, usadas y errores, `timer_load` | → `S_INICIO` |
+| `S_DIBUJA_SEL` | `state` = 00, `screen` = selección, `redraw` cuando el LCD está libre | LCD libre → `S_SELECCION` |
+| `S_SELECCION` | `state` = 00 | `btn_sel` → cambia el modo y vuelve a `S_DIBUJA_SEL`; `btn_ok` → captura el LFSR y pasa a `S_CARGA` |
+| `S_CARGA` | `state` = 01; registra la palabra, limpia reveladas, usadas y errores; `timer_load` con 60 o 45 s | → `S_INICIO` |
 | `S_INICIO` | `redraw` (partida), `uart_send` (inicio) | → `S_ESPERA_INICIO` |
-| `S_ESPERA_INICIO` | `timer_run` | capas libres → `S_JUGANDO` |
-| `S_JUGANDO` | `state` = 01, `timer_run` | `rx_valid` → `S_EVALUA`; `timeout` → `S_FIN` |
-| `S_EVALUA` | actualiza reveladas, errores y usadas | → `S_PUBLICA` |
-| `S_PUBLICA` | `redraw` y `uart_send` (letra) o solo `uart_send` (repetida); sonido | → `S_ESPERA_JUGADA` |
-| `S_ESPERA_JUGADA` | — | capas libres: victoria, sexto error o `timeout` → `S_FIN`; si no → `S_JUGANDO` |
-| `S_FIN` | `redraw` (resultado), `uart_send` (fin), sonido, victorias + 1 si ganó | → `S_ESPERA_FIN` |
+| `S_ESPERA_INICIO` | `state` = 01 | capas libres → `S_JUGANDO` |
+| `S_JUGANDO` | `state` = 01, `timer_run` | `timeout` → `S_FIN` (tiene prioridad); `rx_valid` → `S_EVALUA` |
+| `S_EVALUA` | `timer_run`; actualiza reveladas, errores y usadas (o marca repetida) | → `S_PUBLICA` |
+| `S_PUBLICA` | `timer_run`; `uart_send` (letra o repetida); `redraw` y sonido solo si no es repetida | → `S_ESPERA_JUGADA` |
+| `S_ESPERA_JUGADA` | `timer_run` | capas libres: victoria, sexto error o `timeout` → `S_FIN`; si no → `S_JUGANDO` |
+| `S_FIN` | `state` = 10; `redraw` (resultado), `uart_send` (fin), sonido; victorias + 1 si ganó | → `S_ESPERA_FIN` |
 | `S_ESPERA_FIN` | `state` = 10 | capas libres → `S_RESULTADO` |
-| `S_RESULTADO` | cuenta 3000 ticks | → `S_DIBUJA_SEL` |
+| `S_RESULTADO` | `state` = 10; cuenta 3000 ticks | → `S_DIBUJA_SEL` |
 
 El reinicio lleva a `S_DIBUJA_SEL` desde cualquier estado.
 
